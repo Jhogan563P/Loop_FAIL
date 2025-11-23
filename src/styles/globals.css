@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url(https://fonts.googleapis.com/css?family=Anonymous+Pro);
+@import "tailwindcss";
+
+:root {
+  --font-arcade: 'Press Start 2P', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+
+.font-arcade { font-family: var(--font-arcade); }
+
+/* Básicos */
+html, body, #root { height: 100%; }
+body { background: #000; color: #fff; }
+
+/* Pixelated images for retro aesthetic */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+/* Radial gradient utility */
+.bg-gradient-radial {
+  background-image: radial-gradient(circle, var(--tw-gradient-stops));
+}
+
+/* Cursor */
+.cursor{
+    position: relative;
+    width: 24em;
+    margin: 0 auto;
+    border-right: 2px solid rgba(255,255,255,.75);
+    font-size: 30px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    transform: translateY(-50%);    
+}
+/* Animation */
+.typewriter-animation {
+  display: inline-block;
+  overflow: hidden;
+  position: relative;
+  width: max-content;
+  margin: 0 auto;
+  border-right: 2px solid rgba(255,255,255,.75);
+  white-space: nowrap;
+  animation: 
+    typewriter 5s steps(35) 1s 1 normal both,
+    blinkingCursor 500ms steps(35) infinite normal;
+}
+
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes blinkingCursor{
+  from { border-right-color: rgba(255,255,255,.75); }
+  to { border-right-color: transparent; }
+}

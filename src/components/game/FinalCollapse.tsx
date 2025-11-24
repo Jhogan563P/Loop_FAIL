@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
 import r3_sentado from '@/assets/robots/r3_sentado.gif';
 
 interface FinalCollapseProps {
@@ -10,9 +10,21 @@ export default function FinalCollapse({ onRestart }: FinalCollapseProps) {
     const navigate = useNavigate();
 
     const handleRestart = () => {
-        console.log('Restart requested');
-        onRestart(); // Reset game state
-        navigate('/'); // Go to welcome page
+        console.log('FinalCollapse: restart button clicked - before onRestart');
+        try {
+            onRestart(); // Reset game state
+            console.log('FinalCollapse: onRestart() executed');
+        } catch (err) {
+            console.error('FinalCollapse: error calling onRestart', err);
+        }
+
+        try {
+            console.log('FinalCollapse: navigating to / (welcome page)');
+            navigate('/');
+            console.log("FinalCollapse: navigate('/') called");
+        } catch (err) {
+            console.error('FinalCollapse: navigate error', err);
+        }
     };
 
     return (
@@ -79,16 +91,50 @@ export default function FinalCollapse({ onRestart }: FinalCollapseProps) {
                         </p>
                     </div>
 
-                    {/* Restart button */}
-                    <motion.button
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 1.5 }}
-                        onClick={handleRestart}
-                        className="mt-8 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-arcade border-2 border-blue-400 transition-colors shadow-lg shadow-blue-500/50 cursor-pointer"
-                    >
-                        REINTENTAR
-                    </motion.button>
+                    {/* Volver a la página de inicio (reemplaza botón de reinicio) */}
+                    <div className="mt-8 flex items-center gap-4">
+                        <motion.button
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.2 }}
+                            onClick={() => {
+                                console.log('FinalCollapse: volver a la página de inicio clicked');
+                                try {
+                                    onRestart();
+                                    console.log('FinalCollapse: onRestart() executed before navigation');
+                                } catch (err) {
+                                    console.error('FinalCollapse: error calling onRestart', err);
+                                }
+                                try {
+                                    navigate('/');
+                                } catch (err) {
+                                    console.error('FinalCollapse: navigate error', err);
+                                }
+                            }}
+                            className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-arcade border-2 border-blue-400 transition-colors shadow-lg shadow-blue-500/50"
+                        >
+                            VOLVER A LA PÁGINA DE INICIO
+                        </motion.button>
+
+                        {/* Optional: quick restart without navigation (keeps on same page) */}
+                        <motion.button
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.4 }}
+                            onClick={() => {
+                                console.log('FinalCollapse: reiniciar sin navegar clicked');
+                                try {
+                                    onRestart();
+                                    console.log('FinalCollapse: onRestart() executed (stay on page)');
+                                } catch (err) {
+                                    console.error('FinalCollapse: error calling onRestart', err);
+                                }
+                            }}
+                            className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white font-arcade border-2 border-gray-600 transition-colors shadow-lg shadow-black/50"
+                        >
+                            REINICIAR (QUEDARSE)
+                        </motion.button>
+                    </div>
                 </motion.div>
             </div>
 

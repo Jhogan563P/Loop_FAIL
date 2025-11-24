@@ -30,6 +30,8 @@ export interface PlayerState {
     pause: () => Promise<void>;
     togglePlay: () => Promise<void>;
     goTo: (section: SoundState, errorLevel: ErrorLevel) => Promise<void>;
+    pendingPlay?: boolean;
+    requestUserPlay?: () => Promise<void>;
     setVolume: (v: number) => void;
     mute: () => void;
     unmute: () => void;

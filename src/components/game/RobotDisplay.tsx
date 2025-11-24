@@ -41,6 +41,7 @@ export default function RobotDisplay({ section, phase }: RobotDisplayProps) {
 
     useEffect(() => {
         const newRobot = getRobotGif(section, phase);
+        console.log('RobotDisplay: changing robot gif ->', { section, phase, newRobot });
         setCurrentRobot(newRobot);
         setKey(prev => prev + 1); // Force re-render of GIF
     }, [section, phase]);

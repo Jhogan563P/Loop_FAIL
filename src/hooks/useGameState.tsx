@@ -33,11 +33,14 @@ const getRandomKeys = (count: number) => {
 const EXPLOSION_DURATION = 2000;
 
 // Section configuration
+// Each section will present 2 error-triggering challenges (quick-time-events).
+// Time limits reduce to increase difficulty as sections progress.
 const SECTION_CONFIG = {
-  1: { keysPerChallenge: 1, totalChallenges: 5, timePerChallenge: 2.5, minCorrectHits: 3 },
-  2: { keysPerChallenge: 2, totalChallenges: 10, timePerChallenge: 3.0, minCorrectHits: 6 },
-  3: { keysPerChallenge: 4, totalChallenges: 16, timePerChallenge: 4.0, minCorrectHits: 10 },
-  4: { keysPerChallenge: 6, totalChallenges: 18, timePerChallenge: 5.0, minCorrectHits: 11 },
+  // Increase to 3 QTEs per section so the player has three interaction moments as requested
+  1: { keysPerChallenge: 1, totalChallenges: 3, timePerChallenge: 5.0, minCorrectHits: 2 },
+  2: { keysPerChallenge: 2, totalChallenges: 3, timePerChallenge: 4.0, minCorrectHits: 2 },
+  3: { keysPerChallenge: 4, totalChallenges: 3, timePerChallenge: 3.0, minCorrectHits: 2 },
+  4: { keysPerChallenge: 6, totalChallenges: 3, timePerChallenge: 2.0, minCorrectHits: 1 },
 };
 
 export const useGameState = () => {
@@ -55,6 +58,8 @@ export const useGameState = () => {
   const [timeRemaining, setTimeRemaining] = useState(SECTION_CONFIG[1].timePerChallenge);
 
   const [isGameOver, setIsGameOver] = useState(false);
+  // For section 1 we have two passes: first playback without challenges, second playback with the 2 challenges.
+  const [sectionOnePassedHalf, setSectionOnePassedHalf] = useState(false);
 
   // Generate new challenge
   const generateNewChallenge = useCallback(() => {
@@ -66,11 +71,32 @@ export const useGameState = () => {
     setTimeRemaining(challengeTimeLimit);
   }, [currentSection, challengeTimeLimit]);
 
+  // Start challenges for the current section (used e.g. when section 1 reaches its second pass)
+  const startSectionChallenges = useCallback((section?: 1 | 2 | 3 | 4) => {
+    const s = section ?? (currentSection as 1 | 2 | 3 | 4);
+    const config = SECTION_CONFIG[s];
+    setTotalChallenges(config.totalChallenges);
+    setCompletedChallenges(0);
+    setCorrectHits(0);
+    setIncorrectHits(0);
+    setChallengeTimeLimit(config.timePerChallenge);
+    setTimeRemaining(config.timePerChallenge);
+    setCurrentKeys(getRandomKeys(config.keysPerChallenge));
+    setPressedKeys([]);
+    setCurrentPhase('playing');
+  }, [currentSection]);
+
+  const markSectionOneHalfPassed = useCallback(() => {
+    setSectionOnePassedHalf(true);
+  }, []);
+
   // Initialize section
   const initializeSection = useCallback((section: 1 | 2 | 3 | 4) => {
     const config = SECTION_CONFIG[section];
     console.log('Initializing section:', section, config);
-    setTotalChallenges(config.totalChallenges);
+    // By default initialize section challenges. For section 1 we start with the first playback
+    // without challenges; the actual challenges will be started when the half-point is reached.
+    setTotalChallenges(section === 1 ? 0 : config.totalChallenges);
     setCompletedChallenges(0);
     setCorrectHits(0);
     setIncorrectHits(0);
@@ -89,8 +115,20 @@ export const useGameState = () => {
 
     if (completedChallenges >= totalChallenges) {
       console.log('Section Complete Check:', { completedChallenges, totalChallenges, correctHits, min: config.minCorrectHits });
+      // For section 1 we always transition to section 2 (reset audio/robots regardless of repairs)
+      if (currentSection === 1) {
+        console.log('Section 1 complete - forced transition to section 2 (reset)');
+        setCurrentPhase('exploding');
+        setTimeout(() => {
+          const nextSection = 2 as 1 | 2 | 3 | 4;
+          setCurrentSection(nextSection);
+          initializeSection(nextSection);
+        }, EXPLOSION_DURATION);
+        return;
+      }
+
       if (correctHits >= config.minCorrectHits) {
-        // Passed
+        // Passed: go to next section, preserving or improving harmonic state
         console.log('Section Passed!');
         setCurrentPhase('exploding');
         setTimeout(() => {
@@ -104,7 +142,7 @@ export const useGameState = () => {
           }
         }, EXPLOSION_DURATION);
       } else {
-        // Failed
+        // Failed: escalate to final
         console.log('Section Failed!');
         setCurrentPhase('exploding');
         setTimeout(() => {
@@ -224,6 +262,7 @@ export const useGameState = () => {
     setCurrentKeys(getRandomKeys(SECTION_CONFIG[1].keysPerChallenge));
     setPressedKeys([]);
     setCurrentPhase('playing');
+    setSectionOnePassedHalf(false);
   }, []);
 
   return {
@@ -239,5 +278,9 @@ export const useGameState = () => {
     timeRemaining,
     isGameOver,
     resetGame,
+    // exported helpers
+    startSectionChallenges,
+    sectionOnePassedHalf,
+    markSectionOneHalfPassed,
   };
 };

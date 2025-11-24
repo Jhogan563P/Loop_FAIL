@@ -35,6 +35,9 @@ export default function GameController() {
         challengeTimeLimit,
         timeRemaining,
         resetGame,
+        startSectionChallenges,
+        sectionOnePassedHalf,
+        markSectionOneHalfPassed,
     } = useGameState();
 
     const player = usePlayer();
@@ -49,13 +52,16 @@ export default function GameController() {
         // Only load new audio when section changes and we are at the start
         if (currentPhase === 'playing' && completedChallenges === 0) {
             const soundState = getSoundState(currentSection);
-            const errorLevel = getRandomErrorLevel(currentSection);
 
-            console.log('🎵 Loading section audio:', currentSection, 'level:', errorLevel);
+            // Section 1 special: start with no-error variant for the first playback.
+            const isSectionOne = currentSection === 1;
+            const initialError = isSectionOne ? 0 : getRandomErrorLevel(currentSection);
+
+            console.log('🎵 Loading section audio:', currentSection, 'initial level:', initialError);
 
             // Small delay to ensure previous audio is stopped
             const timeoutId = setTimeout(() => {
-                void player.goTo(soundState, errorLevel);
+                void player.goTo(soundState, initialError);
             }, 100);
 
             return () => clearTimeout(timeoutId);
@@ -63,9 +69,45 @@ export default function GameController() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentSection, currentPhase, completedChallenges]);
 
+    // Watch for section 1 midpoint to trigger second pass: enable challenges and switch variant
+    useEffect(() => {
+        if (currentSection !== 1) return;
+        if (sectionOnePassedHalf) return;
+
+        // player's positionMs updated from PlayerContext; poll via interval if not provided
+        const checkInterval = setInterval(() => {
+            try {
+                const pos = (player.positionMs ?? player.getPositionMs?.() ?? 0) as number;
+                // when we reach half of section 1 (50s total -> 25s = 25000ms)
+                if (pos >= 25000) {
+                    console.log('Section 1 half reached, switching to error variant and starting challenges');
+                    // switch to error-heavy variant (error level 2) and start challenges
+                    if (typeof player.setErrorLevel === 'function') player.setErrorLevel(2);
+                    // reload fragment and keep playing from same position is handled in the player provider
+                    if (typeof player.play === 'function') void player.play();
+                    // start the 2 challenges for section 1
+                    startSectionChallenges(1);
+                    markSectionOneHalfPassed();
+                }
+            } catch (e) {
+                // ignore
+            }
+        }, 250);
+
+        return () => clearInterval(checkInterval);
+    }, [currentSection, sectionOnePassedHalf, player, startSectionChallenges, markSectionOneHalfPassed]);
+
     const handleRestart = () => {
         console.log('🔄 Restarting game...');
         resetGame();
+        // Reset audio/error state in player so playback restarts cleanly
+        try {
+            if (typeof player.setErrorLevel === 'function') player.setErrorLevel(0);
+            // Ensure player navigates to section 1 with no errors
+            void player.goTo('seccion1', 0);
+        } catch (e) {
+            console.warn('Player restart helpers not available', e);
+        }
     };
 
     if (currentSection === 'final') {
@@ -140,6 +182,24 @@ export default function GameController() {
             {/* Red flash during explosion */}
             {currentPhase === 'exploding' && (
                 <div className="absolute inset-0 bg-red-900 opacity-20 animate-pulse pointer-events-none z-30" />
+            )}
+
+            {/* Pending play overlay: appears when autoplay was blocked */}
+            {player.pendingPlay && (
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
+                    <div className="bg-slate-900/90 p-6 rounded-md border-2 border-blue-600 text-center">
+                        <p className="font-arcade text-white mb-4">Haz click para activar el audio</p>
+                        <button
+                            onClick={() => {
+                                console.log('User clicked to allow audio');
+                                if (typeof player.requestUserPlay === 'function') player.requestUserPlay();
+                            }}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-arcade rounded"
+                        >
+                            Activar audio
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

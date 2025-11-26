@@ -20,7 +20,7 @@ interface RobotDisplayProps {
 const getRobotGif = (section: GameSection, phase: GamePhase): string => {
     if (section === 'final') return r3_sentado;
 
-    if (phase === 'exploding') {
+    if (phase === 'exploding' || phase === 'challenge-failed') {
         // Show explosion for current section
         if (section === 1) return r1_explosion;
         if (section === 2) return r2_explosion;
@@ -35,50 +35,80 @@ const getRobotGif = (section: GameSection, phase: GamePhase): string => {
     return r1_sentado;
 };
 
+// Get robot states for all 3 robots based on current section
+const getRobotsState = (section: GameSection, phase: GamePhase) => {
+    if (section === 'final') {
+        return [r3_sentado, r3_sentado, r3_sentado];
+    }
+
+    const isExploding = phase === 'exploding' || phase === 'challenge-failed';
+
+    // Robot 1 (left)
+    let robot1 = r1_sentado;
+    if (section === 1 && isExploding) robot1 = r1_explosion;
+    else if (section >= 2) robot1 = r1_explosion; // Already exploded in previous sections
+
+    // Robot 2 (center)
+    let robot2 = r1_sentado; // Not active yet
+    if (section >= 2) robot2 = r2_cantando;
+    if (section === 2 && isExploding) robot2 = r2_explosion;
+    else if (section >= 3) robot2 = r2_explosion; // Already exploded
+
+    // Robot 3 (right)
+    let robot3 = r1_sentado; // Not active yet
+    if (section >= 3) robot3 = r3_cantando;
+    if ((section === 3 || section === 4) && isExploding) robot3 = r3_sentado;
+
+    return [robot1, robot2, robot3];
+};
+
 export default function RobotDisplay({ section, phase }: RobotDisplayProps) {
-    const [currentRobot, setCurrentRobot] = useState(getRobotGif(section, phase));
+    const [robots, setRobots] = useState(getRobotsState(section, phase));
     const [key, setKey] = useState(0);
 
     useEffect(() => {
-        const newRobot = getRobotGif(section, phase);
-        console.log('RobotDisplay: changing robot gif ->', { section, phase, newRobot });
-        setCurrentRobot(newRobot);
-        setKey(prev => prev + 1); // Force re-render of GIF
+        const newRobots = getRobotsState(section, phase);
+        console.log('RobotDisplay: changing robots ->', { section, phase, newRobots });
+        setRobots(newRobots);
+        setKey(prev => prev + 1); // Force re-render of GIFs
     }, [section, phase]);
 
     return (
-        <div className="relative w-full h-full flex items-center justify-center">
+        <div className="relative w-full h-full flex items-center justify-center gap-8">
             <AnimatePresence mode="wait">
-                <motion.div
-                    key={key}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{
-                        opacity: 1,
-                        scale: phase === 'exploding' ? [1, 1.1, 1] : 1
-                    }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{
-                        duration: phase === 'exploding' ? 0.5 : 0.3,
-                        scale: { duration: 0.5, times: [0, 0.5, 1] }
-                    }}
-                    className="relative"
-                >
-                    <img
-                        src={currentRobot}
-                        alt={`Robot ${phase === 'exploding' ? 'explosion' : 'estado'} ${section}`}
-                        className="max-w-full max-h-[400px] object-contain pixelated"
-                    />
-
-                    {/* Explosion flash effect */}
-                    {phase === 'exploding' && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: [0, 0.6, 0] }}
-                            transition={{ duration: 0.5, times: [0, 0.3, 1] }}
-                            className="absolute inset-0 bg-red-500 mix-blend-screen"
+                {robots.map((robotGif, index) => (
+                    <motion.div
+                        key={`${key}-${index}`}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{
+                            opacity: 1,
+                            scale: (phase === 'exploding' || phase === 'challenge-failed') ? [1, 1.1, 1] : 1
+                        }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{
+                            duration: (phase === 'exploding' || phase === 'challenge-failed') ? 0.5 : 0.3,
+                            scale: { duration: 0.5, times: [0, 0.5, 1] },
+                            delay: index * 0.1 // Stagger animation
+                        }}
+                        className="relative"
+                    >
+                        <img
+                            src={robotGif}
+                            alt={`Robot ${index + 1}`}
+                            className="max-w-full max-h-[300px] object-contain pixelated"
                         />
-                    )}
-                </motion.div>
+
+                        {/* Explosion flash effect */}
+                        {(phase === 'exploding' || phase === 'challenge-failed') && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: [0, 0.6, 0] }}
+                                transition={{ duration: 0.5, times: [0, 0.3, 1], delay: index * 0.1 }}
+                                className="absolute inset-0 bg-red-500 mix-blend-screen"
+                            />
+                        )}
+                    </motion.div>
+                ))}
             </AnimatePresence>
         </div>
     );

@@ -31,9 +31,6 @@ export default function KeyboardChallenge({
                 <div className="text-green-400">
                     ACIERTOS: {correctHits}
                 </div>
-                <div className="text-gray-400">
-                    PROGRESO: {completedChallenges}/{totalChallenges}
-                </div>
                 <div className="text-red-400">
                     FALLOS: {incorrectHits}
                 </div>

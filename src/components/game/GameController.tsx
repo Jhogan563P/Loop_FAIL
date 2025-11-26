@@ -168,7 +168,7 @@ export default function GameController() {
                                 <div 
                                     className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 transition-all duration-100 relative"
                                     style={{ 
-                                        width: `${(sectionTimeRemaining / ([21, 24, 33, 26][currentSection - 1] || 21)) * 100}%` 
+                                        width: `${(sectionTimeRemaining / ([21, 24, 33, 24][currentSection - 1] || 21)) * 100}%` 
                                     }}
                                 >
                                     <div className="absolute inset-0 bg-white/20 animate-pulse" />

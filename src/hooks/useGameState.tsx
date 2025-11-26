@@ -61,7 +61,7 @@ const SECTION_CONFIG = {
     totalChallenges: 3, 
     timePerChallenge: 2.0, 
     minCorrectHits: 1,
-    sectionDuration: 26
+    sectionDuration: 24
   },
 };
 

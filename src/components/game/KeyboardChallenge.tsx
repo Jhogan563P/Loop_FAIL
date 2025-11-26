@@ -42,7 +42,7 @@ export default function KeyboardChallenge({
             {/* Progress Bars */}
             <div className="w-full space-y-2 px-4">
                 {/* Challenge progress */}
-                <div className="w-full h-2 bg-gray-700 border border-blue-900 relative overflow-hidden rounded-full">
+                <div className="w-full h-1.5 bg-gray-700 border border-blue-900 relative overflow-hidden rounded-full">
                     <motion.div
                         className="h-full bg-blue-500"
                         initial={{ width: '0%' }}
@@ -51,8 +51,8 @@ export default function KeyboardChallenge({
                     />
                 </div>
 
-                {/* Timer bar */}
-                <div className="w-full h-4 bg-gray-800 border-2 border-blue-500 relative overflow-hidden rounded-sm shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                {/* Timer bar - más delgada */}
+                <div className="w-full h-2 bg-gray-800 border border-blue-500 relative overflow-hidden rounded-sm shadow-[0_0_8px_rgba(59,130,246,0.3)]">
                     <motion.div
                         className="h-full bg-gradient-to-r from-blue-600 to-cyan-400"
                         animate={{ width: `${progress}%` }}

@@ -9,24 +9,6 @@ interface FinalCollapseProps {
 export default function FinalCollapse({ onRestart }: FinalCollapseProps) {
     const navigate = useNavigate();
 
-    const handleRestart = () => {
-        console.log('FinalCollapse: restart button clicked - before onRestart');
-        try {
-            onRestart(); // Reset game state
-            console.log('FinalCollapse: onRestart() executed');
-        } catch (err) {
-            console.error('FinalCollapse: error calling onRestart', err);
-        }
-
-        try {
-            console.log('FinalCollapse: navigating to / (welcome page)');
-            navigate('/');
-            console.log("FinalCollapse: navigate('/') called");
-        } catch (err) {
-            console.error('FinalCollapse: navigate error', err);
-        }
-    };
-
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -47,56 +29,59 @@ export default function FinalCollapse({ onRestart }: FinalCollapseProps) {
             />
 
             {/* Content */}
-            <div className="relative z-10 flex flex-col items-center gap-8 max-w-2xl">
-                {/* Final robot state - r3_sentado */}
+            <div className="relative z-10 flex items-center justify-center w-full h-full max-w-4xl px-8">
+                {/* Robot image as background layer */}
                 <motion.div
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.5 }}
-                    className="relative"
+                    className="absolute inset-0 flex items-center justify-center"
                 >
                     <img
                         src={r3_sentado}
                         alt="Robot final state"
-                        className="max-w-md pixelated"
+                        className="max-w-2xl max-h-[80vh] object-contain pixelated opacity-40"
                     />
 
                     {/* Chromatic aberration effect */}
-                    <div className="absolute inset-0 mix-blend-screen">
-                        <div className="w-full h-full bg-red-500 opacity-20 translate-x-1" />
-                        <div className="w-full h-full bg-blue-500 opacity-20 -translate-x-1" />
+                    <div className="absolute inset-0 mix-blend-screen pointer-events-none">
+                        <div className="w-full h-full bg-red-500 opacity-10 translate-x-1" />
                     </div>
                 </motion.div>
 
-                {/* Message */}
+                {/* Overlay menu - positioned on top of robot */}
                 <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.5 }}
-                    className="text-center space-y-6"
+                    className="relative z-20 text-center space-y-8 bg-black/70 backdrop-blur-sm border-4 border-blue-500/50 p-8 md:p-12 shadow-[0_0_40px_rgba(59,130,246,0.4)] max-w-2xl"
                 >
-                    <h1 className="text-3xl md:text-4xl font-arcade text-blue-400 leading-relaxed">
+                    {/* Title */}
+                    <h1 className="text-4xl md:text-5xl font-arcade text-blue-400 leading-relaxed drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]">
                         COLAPSO TOTAL
                     </h1>
 
-                    <div className="space-y-4 text-gray-400 font-arcade text-sm leading-relaxed">
-                        <p>
+                    {/* Messages */}
+                    <div className="space-y-4 text-gray-300 font-arcade text-sm md:text-base leading-relaxed">
+                        <p className="text-red-400 animate-pulse">
                             EL SISTEMA HA FALLADO
                         </p>
-                        <p className="text-xs max-w-md">
+                        <p className="text-xs md:text-sm">
                             PERO EN EL FRACASO ENCONTRAMOS ARMONIA
                         </p>
-                        <p className="text-xs max-w-md text-gray-500">
+                        <p className="text-xs text-gray-500">
                             CADA ERROR ES PARTE DEL PROCESO ITERATIVO
                         </p>
                     </div>
 
-                    {/* Volver a la página de inicio (reemplaza botón de reinicio) */}
-                    <div className="mt-8 flex items-center gap-4">
+                    {/* Buttons */}
+                    <div className="mt-8 flex flex-col md:flex-row items-center justify-center gap-4">
                         <motion.button
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            transition={{ delay: 0.2 }}
+                            transition={{ delay: 0.7 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => {
                                 console.log('FinalCollapse: volver a la página de inicio clicked');
                                 try {
@@ -111,16 +96,17 @@ export default function FinalCollapse({ onRestart }: FinalCollapseProps) {
                                     console.error('FinalCollapse: navigate error', err);
                                 }
                             }}
-                            className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-arcade border-2 border-blue-400 transition-colors shadow-lg shadow-blue-500/50"
+                            className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-arcade text-sm border-2 border-blue-400 transition-all shadow-lg shadow-blue-500/50 w-full md:w-auto"
                         >
-                            VOLVER A LA PÁGINA DE INICIO
+                            MENU PRINCIPAL
                         </motion.button>
 
-                        {/* Optional: quick restart without navigation (keeps on same page) */}
                         <motion.button
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            transition={{ delay: 0.4 }}
+                            transition={{ delay: 0.9 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => {
                                 console.log('FinalCollapse: reiniciar sin navegar clicked');
                                 try {
@@ -130,9 +116,9 @@ export default function FinalCollapse({ onRestart }: FinalCollapseProps) {
                                     console.error('FinalCollapse: error calling onRestart', err);
                                 }
                             }}
-                            className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white font-arcade border-2 border-gray-600 transition-colors shadow-lg shadow-black/50"
+                            className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white font-arcade text-sm border-2 border-gray-600 transition-all shadow-lg shadow-black/50 w-full md:w-auto"
                         >
-                            REINICIAR (QUEDARSE)
+                            REINTENTAR
                         </motion.button>
                     </div>
                 </motion.div>

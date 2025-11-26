@@ -96,14 +96,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const onLoaded = () => {
       const d = fragmentDuration || (Number.isFinite(audio.duration) ? audio.duration : 0);
       setDurationMs(d * 1000); // Usamos la duración personalizada si está presente
-      console.log('loadFragment: loaded metadata, duration=', d);
+      console.log('loadFragment: loaded metadata, duration=', d, 'resuming from:', prevPositionSec);
       // Try to resume at previous position if available
       try {
         if (prevPositionSec && audio.duration && prevPositionSec < audio.duration) {
           audio.currentTime = prevPositionSec;
+          console.log('Resumed playback at:', prevPositionSec);
         }
       } catch (e) {
-        // ignore invalid seek
+        console.warn('Could not seek to previous position:', e);
       }
     };
     audio.addEventListener("loadedmetadata", onLoaded);
@@ -135,6 +136,28 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error: any) {
       // Autoplay blocked (NotAllowedError) or interrupted (AbortError)
       console.warn('Error al reproducir el audio:', error && error.name ? error.name : error);
+      
+      // Ignore AbortError - it happens when switching audio
+      if (error.name === 'AbortError') {
+        console.log('Audio switch in progress, ignoring error');
+        return;
+      }
+      
+      // Try to play with volume 0 first to unlock autoplay
+      if (audioRef.current && error.name === 'NotAllowedError') {
+        try {
+          const originalVolume = audioRef.current.volume;
+          audioRef.current.volume = 0;
+          await audioRef.current.play();
+          audioRef.current.volume = originalVolume;
+          setPendingPlay(false);
+          console.log('Audio unlocked and playing');
+          return;
+        } catch (silentError) {
+          console.warn('Silent play also failed:', silentError);
+        }
+      }
+      
       setPendingPlay(true);
 
       const tryOnUserGesture = async () => {
@@ -145,13 +168,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.log('Playback resumed after user gesture');
         } catch (err) {
           console.error('Playback still blocked after user gesture:', err);
-          setPendingPlay(true);
         }
       };
 
-      // Listen once for a user gesture to retry playback
+      // Listen for ANY user gesture to retry playback
       window.addEventListener('pointerdown', tryOnUserGesture, { once: true });
       window.addEventListener('keydown', tryOnUserGesture, { once: true });
+      window.addEventListener('click', tryOnUserGesture, { once: true });
     }
   }, [loadFragment, durationMs]);
   // public goTo: navigates by section name and error level

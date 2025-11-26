@@ -26,6 +26,7 @@ export default function GameController() {
     const {
         currentSection,
         currentPhase,
+        currentErrorLevel,
         totalChallenges,
         completedChallenges,
         correctHits,
@@ -34,6 +35,7 @@ export default function GameController() {
         pressedKeys,
         challengeTimeLimit,
         timeRemaining,
+        sectionTimeRemaining,
         resetGame,
         startSectionChallenges,
         sectionOnePassedHalf,
@@ -69,6 +71,21 @@ export default function GameController() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentSection, currentPhase, completedChallenges]);
 
+    // Update player error level when game state error level changes
+    useEffect(() => {
+        if (currentSection === 'final') return;
+        if (currentPhase === 'exploding') return; // Don't update during section transition
+        
+        console.log('🎚️ Updating player error level to:', currentErrorLevel, 'Section:', currentSection);
+        if (typeof player.setErrorLevel === 'function') {
+            player.setErrorLevel(currentErrorLevel);
+            // Play after changing error level to ensure audio continues
+            if (typeof player.play === 'function') {
+                void player.play();
+            }
+        }
+    }, [currentErrorLevel, currentSection, currentPhase, player]);
+
     // Watch for section 1 midpoint to trigger second pass: enable challenges and switch variant
     useEffect(() => {
         if (currentSection !== 1) return;
@@ -80,11 +97,7 @@ export default function GameController() {
                 const pos = (player.positionMs ?? player.getPositionMs?.() ?? 0) as number;
                 // when we reach half of section 1 (50s total -> 25s = 25000ms)
                 if (pos >= 25000) {
-                    console.log('Section 1 half reached, switching to error variant and starting challenges');
-                    // switch to error-heavy variant (error level 2) and start challenges
-                    if (typeof player.setErrorLevel === 'function') player.setErrorLevel(2);
-                    // reload fragment and keep playing from same position is handled in the player provider
-                    if (typeof player.play === 'function') void player.play();
+                    console.log('Section 1 half reached, starting challenges');
                     // start the 2 challenges for section 1
                     startSectionChallenges(1);
                     markSectionOneHalfPassed();
@@ -135,9 +148,35 @@ export default function GameController() {
                         SECCION {currentSection}/4
                     </div>
                     <div className="font-arcade text-gray-500 text-xs">
-                        {currentPhase === 'exploding' ? 'EXPLOSION' : `ERROR NIVEL ${player.currentErrorLevel}`}
+                        {(currentPhase === 'exploding' || currentPhase === 'challenge-failed') ? 'EXPLOSION' : `ERROR NIVEL ${currentErrorLevel}`}
                     </div>
                 </div>
+
+                {/* Section Progress Bar - Encima del robot */}
+                {typeof currentSection === 'number' && (
+                    <div className="w-full max-w-4xl mb-8 px-4">
+                        <div className="bg-gray-900/50 backdrop-blur-sm border border-blue-500/30 rounded-lg p-4 shadow-lg">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="font-arcade text-blue-400 text-xs tracking-wider">
+                                    TIEMPO DE SECCIÓN
+                                </span>
+                                <span className="font-arcade text-blue-300 text-xl tabular-nums">
+                                    {Math.ceil(sectionTimeRemaining)}s
+                                </span>
+                            </div>
+                            <div className="w-full h-3 bg-gray-800/80 rounded-full overflow-hidden border border-blue-500/50 shadow-inner">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 transition-all duration-100 relative"
+                                    style={{ 
+                                        width: `${(sectionTimeRemaining / ([21, 24, 33, 26][currentSection - 1] || 21)) * 100}%` 
+                                    }}
+                                >
+                                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Robot Display */}
                 <div className="flex-1 flex items-center justify-center w-full max-w-2xl">
@@ -157,6 +196,16 @@ export default function GameController() {
                             correctHits={correctHits}
                             incorrectHits={incorrectHits}
                         />
+                    )}
+                    {currentPhase === 'challenge-failed' && (
+                        <div className="h-32 flex flex-col items-center justify-center gap-2">
+                            <p className="font-arcade text-red-500 text-xl animate-pulse">
+                                ¡ERROR!
+                            </p>
+                            <p className="font-arcade text-orange-400 text-xs">
+                                NIVEL DE ERROR AUMENTADO
+                            </p>
+                        </div>
                     )}
                     {currentPhase === 'exploding' && (
                         <div className="h-32 flex flex-col items-center justify-center gap-2">
@@ -179,24 +228,35 @@ export default function GameController() {
                 }}
             />
 
-            {/* Red flash during explosion */}
-            {currentPhase === 'exploding' && (
+            {/* Red flash during explosion or challenge failure */}
+            {(currentPhase === 'exploding' || currentPhase === 'challenge-failed') && (
                 <div className="absolute inset-0 bg-red-900 opacity-20 animate-pulse pointer-events-none z-30" />
             )}
 
             {/* Pending play overlay: appears when autoplay was blocked */}
             {player.pendingPlay && (
-                <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50">
-                    <div className="bg-slate-900/90 p-6 rounded-md border-2 border-blue-600 text-center">
-                        <p className="font-arcade text-white mb-4">Haz click para activar el audio</p>
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+                    <div className="bg-gray-900/95 p-8 rounded-lg border-4 border-blue-500 text-center shadow-[0_0_40px_rgba(59,130,246,0.6)] max-w-md">
+                        <div className="mb-6">
+                            <div className="text-6xl mb-4 animate-pulse">🔊</div>
+                            <p className="font-arcade text-blue-400 text-xl mb-2 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]">
+                                AUDIO REQUERIDO
+                            </p>
+                            <p className="font-arcade text-gray-300 text-sm mb-4">
+                                El juego está pausado
+                            </p>
+                            <p className="font-arcade text-gray-400 text-xs">
+                                Haz clic para activar el audio y continuar
+                            </p>
+                        </div>
                         <button
                             onClick={() => {
                                 console.log('User clicked to allow audio');
                                 if (typeof player.requestUserPlay === 'function') player.requestUserPlay();
                             }}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-arcade rounded"
+                            className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-arcade text-lg rounded border-2 border-blue-400 transition-all shadow-lg shadow-blue-500/50 animate-pulse"
                         >
-                            Activar audio
+                            ACTIVAR AUDIO
                         </button>
                     </div>
                 </div>

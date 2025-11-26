@@ -135,16 +135,23 @@ export const useGameState = () => {
   }, []);
 
   // Initialize section
-  const initializeSection = useCallback((section: 1 | 2 | 3 | 4) => {
+  const initializeSection = useCallback((section: 1 | 2 | 3 | 4, previousSection?: 1 | 2 | 3 | 4) => {
     const config = SECTION_CONFIG[section];
-    console.log('Initializing section:', section, config);
+    console.log('Initializing section:', section, 'from:', previousSection, config);
     // By default initialize section challenges. For section 1 we start with the first playback
     // without challenges; the actual challenges will be started when the half-point is reached.
     setTotalChallenges(section === 1 ? 0 : config.totalChallenges);
     setCompletedChallenges(0);
     setCorrectHits(0);
     setIncorrectHits(0);
-    setCurrentErrorLevel(0); // Reset error level when starting new section
+    
+    // Only preserve error level when transitioning from section 3 to 4
+    if (!(previousSection === 3 && section === 4)) {
+      setCurrentErrorLevel(0); // Reset error level for all other transitions
+    } else {
+      console.log('Preserving error level from section 3 to 4');
+    }
+    
     setChallengeTimeLimit(config.timePerChallenge);
     setTimeRemaining(config.timePerChallenge);
     setSectionTimeRemaining(config.sectionDuration);
@@ -168,7 +175,7 @@ export const useGameState = () => {
         console.log('Section 1 complete - transition to section 2');
         const nextSection = 2 as 1 | 2 | 3 | 4;
         setCurrentSection(nextSection);
-        initializeSection(nextSection);
+        initializeSection(nextSection, currentSection as 1 | 2 | 3 | 4);
         return;
       }
 
@@ -181,7 +188,7 @@ export const useGameState = () => {
         } else {
           const nextSection = (currentSection + 1) as 1 | 2 | 3 | 4;
           setCurrentSection(nextSection);
-          initializeSection(nextSection);
+          initializeSection(nextSection, currentSection as 1 | 2 | 3 | 4);
         }
       } else {
         // Failed: show explosion then go to final

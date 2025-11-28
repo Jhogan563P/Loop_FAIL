@@ -16,6 +16,7 @@ import seccion4_error1 from "@/assets/sounds/seccion4_error1.mp3";
 import seccion4_error2 from "@/assets/sounds/seccion4_error2.mp3";
 import seccion4_error3 from "@/assets/sounds/seccion4_error3.mp3";
 import seccion4_error4 from "@/assets/sounds/seccion4_error4.mp3";
+import composicion_final from "@/assets/sounds/composicion_final.mp3"
 
 export const SONGS: Song[] = [
   {
@@ -99,6 +100,26 @@ export const SONGS: Song[] = [
            },
           4: { module: seccion4_error4 as unknown as number,
               duration: 24,
+           },
+        },
+      },
+      {
+        id: "seccion5",
+        variants: {
+          0: { module: composicion_final as unknown as number,
+              duration: 46,
+           },
+          1: { module: composicion_final as unknown as number,
+              duration: 46,
+           },
+          2: { module: composicion_final as unknown as number,
+              duration: 46,
+           },
+          3: { module: composicion_final as unknown as number,
+              duration: 46,
+           },
+          4: { module: composicion_final as unknown as number,
+              duration: 46,
            },
         },
       },

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useGameState } from '@/hooks/useGameState';
 import type { GameSection } from '@/hooks/useGameState';
 import { usePlayer } from '@/hooks/usePlayer';
@@ -6,11 +7,11 @@ import RobotDisplay from './RobotDisplay';
 import KeyboardChallenge from './KeyboardChallenge';
 import FinalCollapse from './FinalCollapse';
 import type { ErrorLevel } from '@/interfaces/sound';
-
-type SoundState = "seccion1" | "seccion2" | "seccion3" | "seccion4";
+import type { SoundState } from '@/interfaces/control';
 
 const getSoundState = (section: GameSection): SoundState => {
     if (section === 'final') return 'seccion4';
+    if (section === 5) return 'seccion5';
     return `seccion${section}` as SoundState;
 };
 
@@ -52,21 +53,18 @@ export default function GameController() {
         }
 
         // Only load new audio when section changes and we are at the start
-        if (currentPhase === 'playing' && completedChallenges === 0) {
+        const shouldLoadAudio = currentPhase === 'playing' && completedChallenges === 0;
+        
+        if (shouldLoadAudio) {
             const soundState = getSoundState(currentSection);
 
-            // Section 1 special: start with no-error variant for the first playback.
+            // Section 1 and 5 special: start with no-error variant
             const isSectionOne = currentSection === 1;
-            const initialError = isSectionOne ? 0 : getRandomErrorLevel(currentSection);
+            const isSectionFive = currentSection === 5;
+            const initialError = (isSectionOne || isSectionFive) ? 0 : getRandomErrorLevel(currentSection);
 
             console.log('🎵 Loading section audio:', currentSection, 'initial level:', initialError);
-
-            // Small delay to ensure previous audio is stopped
-            const timeoutId = setTimeout(() => {
-                void player.goTo(soundState, initialError);
-            }, 100);
-
-            return () => clearTimeout(timeoutId);
+            void player.goTo(soundState, initialError);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentSection, currentPhase, completedChallenges]);
@@ -75,6 +73,7 @@ export default function GameController() {
     useEffect(() => {
         if (currentSection === 'final') return;
         if (currentPhase === 'exploding') return; // Don't update during section transition
+        if (completedChallenges === 0) return; // Don't update at the start of a section
         
         console.log('🎚️ Updating player error level to:', currentErrorLevel, 'Section:', currentSection);
         if (typeof player.setErrorLevel === 'function') {
@@ -84,7 +83,7 @@ export default function GameController() {
                 void player.play();
             }
         }
-    }, [currentErrorLevel, currentSection, currentPhase, player]);
+    }, [currentErrorLevel, currentSection, currentPhase, player, completedChallenges]);
 
     // Watch for section 1 midpoint to trigger second pass: enable challenges and switch variant
     useEffect(() => {
@@ -142,18 +141,20 @@ export default function GameController() {
 
             {/* Content */}
             <div className="relative z-20 min-h-screen flex flex-col items-center justify-between p-8">
-                {/* Header */}
-                <div className="w-full max-w-4xl flex justify-between items-center">
-                    <div className="font-arcade text-blue-400 text-xs">
-                        SECCION {currentSection}/4
+                {/* Header - Hide in section 5 */}
+                {currentSection !== 5 && (
+                    <div className="w-full max-w-4xl flex justify-between items-center">
+                        <div className="font-arcade text-blue-400 text-xs">
+                            SECCION {currentSection}/4
+                        </div>
+                        <div className="font-arcade text-gray-500 text-xs">
+                            {(currentPhase === 'exploding' || currentPhase === 'challenge-failed') ? 'EXPLOSION' : `ERROR NIVEL ${currentErrorLevel}`}
+                        </div>
                     </div>
-                    <div className="font-arcade text-gray-500 text-xs">
-                        {(currentPhase === 'exploding' || currentPhase === 'challenge-failed') ? 'EXPLOSION' : `ERROR NIVEL ${currentErrorLevel}`}
-                    </div>
-                </div>
+                )}
 
-                {/* Section Progress Bar - Encima del robot */}
-                {typeof currentSection === 'number' && (
+                {/* Section Progress Bar - Hide in section 5 */}
+                {typeof currentSection === 'number' && currentSection !== 5 && (
                     <div className="w-full max-w-4xl mb-8 px-4">
                         <div className="bg-gray-900/50 backdrop-blur-sm border border-blue-500/30 rounded-lg p-4 shadow-lg">
                             <div className="flex justify-between items-center mb-3">
@@ -180,45 +181,59 @@ export default function GameController() {
 
                 {/* Robot Display */}
                 <div className="flex-1 flex items-center justify-center w-full max-w-2xl">
-                    <RobotDisplay section={currentSection} phase={currentPhase} />
+                    <RobotDisplay section={currentSection} phase={currentPhase} incorrectHits={incorrectHits} />
                 </div>
 
-                {/* Keyboard Challenge or Explosion Message */}
-                <div className="w-full max-w-4xl flex flex-col items-center gap-4 pb-8">
-                    {currentPhase === 'playing' && (
-                        <KeyboardChallenge
-                            targetKeys={currentKeys}
-                            pressedKeys={pressedKeys}
-                            timeRemaining={timeRemaining}
-                            totalTime={challengeTimeLimit}
-                            completedChallenges={completedChallenges}
-                            totalChallenges={totalChallenges}
-                            correctHits={correctHits}
-                            incorrectHits={incorrectHits}
-                        />
-                    )}
-                    {currentPhase === 'challenge-failed' && (
-                        <div className="h-32 flex flex-col items-center justify-center gap-2">
-                            <p className="font-arcade text-red-500 text-xl animate-pulse">
-                                ¡ERROR!
-                            </p>
-                            <p className="font-arcade text-orange-400 text-xs">
-                                NIVEL DE ERROR AUMENTADO
-                            </p>
-                        </div>
-                    )}
-                    {currentPhase === 'exploding' && (
-                        <div className="h-32 flex flex-col items-center justify-center gap-2">
-                            <p className="font-arcade text-red-500 text-sm animate-pulse">
-                                SISTEMA FALLANDO...
-                            </p>
-                            <p className="font-arcade text-gray-400 text-xs">
-                                ACIERTOS: {correctHits}/{totalChallenges}
-                            </p>
-                        </div>
-                    )}
-                </div>
+                {/* Keyboard Challenge or Explosion Message - Hide in section 5 */}
+                {currentSection !== 5 && totalChallenges > 0 && (
+                    <div className="w-full max-w-4xl flex flex-col items-center gap-4 pb-8">
+                        {currentPhase === 'playing' && (
+                            <KeyboardChallenge
+                                targetKeys={currentKeys}
+                                pressedKeys={pressedKeys}
+                                timeRemaining={timeRemaining}
+                                totalTime={challengeTimeLimit}
+                                completedChallenges={completedChallenges}
+                                totalChallenges={totalChallenges}
+                                correctHits={correctHits}
+                                incorrectHits={incorrectHits}
+                            />
+                        )}
+                        {currentPhase === 'challenge-failed' && (
+                            <div className="h-32 flex flex-col items-center justify-center gap-2">
+                                <p className="font-arcade text-red-500 text-xl animate-pulse">
+                                    ¡ERROR!
+                                </p>
+                                <p className="font-arcade text-orange-400 text-xs">
+                                    NIVEL DE ERROR AUMENTADO
+                                </p>
+                            </div>
+                        )}
+                        {currentPhase === 'exploding' && (
+                            <div className="h-32 flex flex-col items-center justify-center gap-2">
+                                <p className="font-arcade text-red-500 text-sm animate-pulse">
+                                    SISTEMA FALLANDO...
+                                </p>
+                                <p className="font-arcade text-gray-400 text-xs">
+                                    ACIERTOS: {correctHits}/{totalChallenges}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
+
+            {/* Section 5: Full-screen black overlay that fades out */}
+            {currentSection === 5 && (
+                <div className="absolute inset-0 z-[100] pointer-events-none">
+                    <motion.div
+                        initial={{ opacity: 1 }}
+                        animate={{ opacity: 0 }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className="absolute inset-0 bg-black"
+                    />
+                </div>
+            )}
 
             {/* Pixel grid */}
             <div

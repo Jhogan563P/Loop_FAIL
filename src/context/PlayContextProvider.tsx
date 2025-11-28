@@ -124,7 +124,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setPendingPlay(false);
       console.log('Player: play started');
 
-      if (durationMs) {
+      // Don't auto-pause for section 5 (victory music should play fully)
+      if (durationMs && currentSectionIndex !== 4) {
         setTimeout(() => {
           if (audioRef.current) {
             audioRef.current.pause();
@@ -143,44 +144,33 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return;
       }
       
-      // Try to play with volume 0 first to unlock autoplay
-      if (audioRef.current && error.name === 'NotAllowedError') {
-        try {
-          const originalVolume = audioRef.current.volume;
-          audioRef.current.volume = 0;
-          await audioRef.current.play();
-          audioRef.current.volume = originalVolume;
-          setPendingPlay(false);
-          console.log('Audio unlocked and playing');
-          return;
-        } catch (silentError) {
-          console.warn('Silent play also failed:', silentError);
-        }
+      // For NotAllowedError, only set pendingPlay (don't try silent play workaround)
+      if (error.name === 'NotAllowedError') {
+        setPendingPlay(true);
+        
+        const tryOnUserGesture = async () => {
+          try {
+            console.log('User gesture detected, attempting to resume playback...');
+            await audioRef.current?.play();
+            setPendingPlay(false);
+            console.log('Playback resumed after user gesture');
+          } catch (err) {
+            console.error('Playback still blocked after user gesture:', err);
+          }
+        };
+
+        // Listen for ANY user gesture to retry playback
+        window.addEventListener('pointerdown', tryOnUserGesture, { once: true });
+        window.addEventListener('keydown', tryOnUserGesture, { once: true });
+        window.addEventListener('click', tryOnUserGesture, { once: true });
       }
-      
-      setPendingPlay(true);
-
-      const tryOnUserGesture = async () => {
-        try {
-          console.log('User gesture detected, attempting to resume playback...');
-          await audioRef.current?.play();
-          setPendingPlay(false);
-          console.log('Playback resumed after user gesture');
-        } catch (err) {
-          console.error('Playback still blocked after user gesture:', err);
-        }
-      };
-
-      // Listen for ANY user gesture to retry playback
-      window.addEventListener('pointerdown', tryOnUserGesture, { once: true });
-      window.addEventListener('keydown', tryOnUserGesture, { once: true });
-      window.addEventListener('click', tryOnUserGesture, { once: true });
     }
   }, [loadFragment, durationMs]);
   // public goTo: navigates by section name and error level
   const goTo = useCallback(async (sectionName: import("../interfaces/control").SoundState, errorLevel: ErrorLevel) => {
-    const map: Record<string, number> = { seccion1: 0, seccion2: 1, seccion3: 2, seccion4: 3 };
+    const map: Record<string, number> = { seccion1: 0, seccion2: 1, seccion3: 2, seccion4: 3, seccion5: 4 };
     const sectionIndex = map[sectionName] ?? 0;
+    console.log('goTo: navigating to', sectionName, 'index:', sectionIndex, 'errorLevel:', errorLevel);
     if (typeof setErrorState === 'function') setErrorState(errorLevel);
     if (typeof setSoundState === 'function') setSoundState(sectionName);
     setCurrentSectionIndex(sectionIndex);

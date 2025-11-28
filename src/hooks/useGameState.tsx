@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-export type GameSection = 1 | 2 | 3 | 4 | 'final';
+export type GameSection = 1 | 2 | 3 | 4 | 5 | 'final';
 export type GamePhase = 'playing' | 'exploding' | 'challenge-failed';
 
 export interface GameState {
@@ -63,6 +63,13 @@ const SECTION_CONFIG = {
     minCorrectHits: 1,
     sectionDuration: 24
   },
+  5: { 
+    keysPerChallenge: 4, 
+    totalChallenges: 5, 
+    timePerChallenge: 3.0, 
+    minCorrectHits: 0, // No minimum required - always passes
+    sectionDuration: 46 // Final celebration section - matches composicion_final duration
+  },
 };
 
 export const useGameState = () => {
@@ -105,7 +112,8 @@ export const useGameState = () => {
 
   // Generate new challenge
   const generateNewChallenge = useCallback(() => {
-    const config = SECTION_CONFIG[currentSection as 1 | 2 | 3 | 4];
+    if (currentSection === 'final') return;
+    const config = SECTION_CONFIG[currentSection as 1 | 2 | 3 | 4 | 5];
     const newKeys = getRandomKeys(config.keysPerChallenge);
     console.log('New challenge keys:', newKeys);
     setCurrentKeys(newKeys);
@@ -135,11 +143,12 @@ export const useGameState = () => {
   }, []);
 
   // Initialize section
-  const initializeSection = useCallback((section: 1 | 2 | 3 | 4, previousSection?: 1 | 2 | 3 | 4) => {
-    const config = SECTION_CONFIG[section];
+  const initializeSection = useCallback((section: 1 | 2 | 3 | 4 | 5, previousSection?: 1 | 2 | 3 | 4) => {
+    const config = SECTION_CONFIG[section as keyof typeof SECTION_CONFIG];
     console.log('Initializing section:', section, 'from:', previousSection, config);
     // By default initialize section challenges. For section 1 we start with the first playback
     // without challenges; the actual challenges will be started when the half-point is reached.
+    // Section 5 has challenges but they are hidden from UI
     setTotalChallenges(section === 1 ? 0 : config.totalChallenges);
     setCompletedChallenges(0);
     setCorrectHits(0);
@@ -163,6 +172,15 @@ export const useGameState = () => {
   // Check if section time is complete (not challenges)
   const checkSectionComplete = useCallback(() => {
     if (currentSection === 'final') return;
+    if (currentSection === 5) {
+      // Section 5 is victory - just wait for time to complete
+      if (sectionTimeRemaining <= 0) {
+        console.log('Section 5 complete - going to final');
+        setCurrentSection('final');
+        setIsGameOver(true);
+      }
+      return;
+    }
 
     const config = SECTION_CONFIG[currentSection as 1 | 2 | 3 | 4];
 
@@ -179,17 +197,20 @@ export const useGameState = () => {
         return;
       }
 
+      // Section 4 always goes to section 5 (victory) regardless of performance
+      if (currentSection === 4) {
+        console.log('Section 4 complete - going to section 5 (victory)');
+        setCurrentSection(5);
+        initializeSection(5, 4);
+        return;
+      }
+
       if (correctHits >= config.minCorrectHits) {
         // Passed: go to next section (no explosion)
         console.log('Section Passed! Transitioning to next section');
-        if (currentSection === 4) {
-          setCurrentSection('final');
-          setIsGameOver(true);
-        } else {
-          const nextSection = (currentSection + 1) as 1 | 2 | 3 | 4;
-          setCurrentSection(nextSection);
-          initializeSection(nextSection, currentSection as 1 | 2 | 3 | 4);
-        }
+        const nextSection = (currentSection + 1) as 1 | 2 | 3 | 4;
+        setCurrentSection(nextSection);
+        initializeSection(nextSection, currentSection as 1 | 2 | 3 | 4);
       } else {
         // Failed: show explosion then go to final
         console.log('Section Failed! Showing explosion');
@@ -246,20 +267,26 @@ export const useGameState = () => {
         // Increment error level (max 4)
         setCurrentErrorLevel(prev => Math.min(4, prev + 1) as 0 | 1 | 2 | 3 | 4);
         
-        // Show explosion animation
-        setCurrentPhase('challenge-failed');
-        
         setCompletedChallenges(c => {
           const newCount = c + 1;
           console.log('❌ Failed - Total completed:', newCount);
 
-          // Show explosion for 1 second, then continue
-          setTimeout(() => {
-            console.log('🔄 Returning to playing phase after explosion');
-            setCurrentPhase('playing');
+          // For section 5, don't show explosion (hidden challenges)
+          if (currentSection === 5) {
             generateNewChallenge();
             isProcessingRef.current = false;
-          }, 1000);
+          } else {
+            // Show explosion animation for other sections
+            setCurrentPhase('challenge-failed');
+            
+            // Show explosion for 1 second, then continue
+            setTimeout(() => {
+              console.log('🔄 Returning to playing phase after explosion');
+              setCurrentPhase('playing');
+              generateNewChallenge();
+              isProcessingRef.current = false;
+            }, 1000);
+          }
           
           return newCount;
         });
@@ -358,22 +385,33 @@ export const useGameState = () => {
           // Increment error level (max 4)
           setCurrentErrorLevel(prev => Math.min(4, prev + 1) as 0 | 1 | 2 | 3 | 4);
           
-          // Show explosion animation
-          setCurrentPhase('challenge-failed');
-          
-          setCompletedChallenges(p => {
-            const newCount = p + 1;
-            console.log('Timeout - Total completed:', newCount);
-
-            // Show explosion for 1 second, then continue
-            setTimeout(() => {
-              setCurrentPhase('playing');
+          // For section 5, don't show explosion animation (hidden challenges)
+          if (currentSection === 5) {
+            setCompletedChallenges(p => {
+              const newCount = p + 1;
+              console.log('Section 5 timeout (hidden) - Total completed:', newCount);
               generateNewChallenge();
               isProcessingRef.current = false;
-            }, 1000);
+              return newCount;
+            });
+          } else {
+            // Show explosion animation for other sections
+            setCurrentPhase('challenge-failed');
             
-            return newCount;
-          });
+            setCompletedChallenges(p => {
+              const newCount = p + 1;
+              console.log('Timeout - Total completed:', newCount);
+
+              // Show explosion for 1 second, then continue
+              setTimeout(() => {
+                setCurrentPhase('playing');
+                generateNewChallenge();
+                isProcessingRef.current = false;
+              }, 1000);
+              
+              return newCount;
+            });
+          }
 
           return challengeTimeLimit;
         }
@@ -382,7 +420,7 @@ export const useGameState = () => {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isGameOver, currentPhase, challengeTimeLimit, generateNewChallenge]);
+  }, [isGameOver, currentPhase, challengeTimeLimit, generateNewChallenge, currentSection]);
 
   // Check section completion based on time
   useEffect(() => {

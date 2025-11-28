@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import type { GameSection } from '@/hooks/useGameState';
 import type { GamePhase } from '@/hooks/useGameState';
@@ -14,83 +14,146 @@ import r3_sentado from '@/assets/robots/r3_sentado.gif';
 interface RobotDisplayProps {
     section: GameSection;
     phase: GamePhase;
+    incorrectHits?: number; // To track which robot should explode
 }
 
-// Correct sequence: r1_sentado -> r1_explosion -> r2_cantando -> r2_explosion -> r3_cantando -> r3_sentado (final)
-const getRobotGif = (section: GameSection, phase: GamePhase): string => {
-    if (section === 'final') return r3_sentado;
-
-    if (phase === 'exploding' || phase === 'challenge-failed') {
-        // Show explosion for current section
-        if (section === 1) return r1_explosion;
-        if (section === 2) return r2_explosion;
-        if (section === 3 || section === 4) return r3_sentado; // Final explosion shows r3_sentado
-    }
-
-    // Playing phase - show correct robot
-    if (section === 1) return r1_sentado;
-    if (section === 2) return r2_cantando;
-    if (section === 3 || section === 4) return r3_cantando;
-
-    return r1_sentado;
-};
-
-// Get robot states for all 3 robots based on current section
-const getRobotsState = (section: GameSection, phase: GamePhase) => {
+// Get robot states for all 3 robots based on current section and error count
+const getRobotsState = (section: GameSection, phase: GamePhase, incorrectHits: number = 0) => {
     if (section === 'final') {
         return [r3_sentado, r3_sentado, r3_sentado];
     }
 
-    const isExploding = phase === 'exploding' || phase === 'challenge-failed';
+    // Section 5: All 3 robots singing (victory)
+    if (section === 5) {
+        return [r3_cantando, r3_cantando, r3_cantando];
+    }
 
-    // Robot 1 (left)
-    let robot1 = r1_sentado;
-    if (section === 1 && isExploding) robot1 = r1_explosion;
-    else if (section >= 2) robot1 = r1_explosion; // Already exploded in previous sections
+    const isChallengeFailed = phase === 'challenge-failed';
+    
+    // Sections 1 & 2: Use r1_explosion for explosions, r2_cantando after
+    if (section === 1 || section === 2) {
+        let robot1 = r1_sentado;
+        let robot2 = r1_sentado;
+        let robot3 = r1_sentado;
 
-    // Robot 2 (center)
-    let robot2 = r1_sentado; // Not active yet
-    if (section >= 2) robot2 = r2_cantando;
-    if (section === 2 && isExploding) robot2 = r2_explosion;
-    else if (section >= 3) robot2 = r2_explosion; // Already exploded
+        if (incorrectHits > 0) {
+            // Determine which robot is currently exploding (left to right: 1st error=left, 2nd=center, 3rd=right)
+            const currentExplodingIndex = ((incorrectHits - 1) % 3); // 0=left, 1=center, 2=right
+            
+            if (isChallengeFailed) {
+                // During explosion phase: show explosion on current robot, r2_cantando on previous ones
+                if (currentExplodingIndex === 0) {
+                    robot1 = r1_explosion;
+                } else if (currentExplodingIndex === 1) {
+                    robot1 = r2_cantando;
+                    robot2 = r1_explosion;
+                } else if (currentExplodingIndex === 2) {
+                    robot1 = r2_cantando;
+                    robot2 = r2_cantando;
+                    robot3 = r1_explosion;
+                }
+            } else {
+                // Playing phase: show r2_cantando for all robots that have already exploded
+                if (incorrectHits >= 1) robot1 = r2_cantando;
+                if (incorrectHits >= 2) robot2 = r2_cantando;
+                if (incorrectHits >= 3) robot3 = r2_cantando;
+            }
+        }
 
-    // Robot 3 (right)
-    let robot3 = r1_sentado; // Not active yet
-    if (section >= 3) robot3 = r3_cantando;
-    if ((section === 3 || section === 4) && isExploding) robot3 = r3_sentado;
+        return [robot1, robot2, robot3];
+    }
 
-    return [robot1, robot2, robot3];
+    // Section 3: Start with r2_cantando, explosion r2_explosion, stay r2_cantando
+    if (section === 3) {
+        let robot1 = r2_cantando;
+        let robot2 = r2_cantando;
+        let robot3 = r2_cantando;
+
+        if (incorrectHits > 0 && isChallengeFailed) {
+            // During explosion phase: show r2_explosion on current robot
+            const currentExplodingIndex = ((incorrectHits - 1) % 3);
+            
+            if (currentExplodingIndex === 0) {
+                robot1 = r2_explosion;
+            } else if (currentExplodingIndex === 1) {
+                robot2 = r2_explosion;
+            } else if (currentExplodingIndex === 2) {
+                robot3 = r2_explosion;
+            }
+        }
+        // All robots stay r2_cantando during playing phase
+
+        return [robot1, robot2, robot3];
+    }
+
+    // Section 4: Start with r2_cantando, explosion r2_explosion, change to r3_cantando
+    if (section === 4) {
+        let robot1 = r2_cantando;
+        let robot2 = r2_cantando;
+        let robot3 = r2_cantando;
+
+        if (incorrectHits > 0) {
+            // Determine which robot is currently exploding (left to right)
+            const currentExplodingIndex = ((incorrectHits - 1) % 3);
+            
+            if (isChallengeFailed) {
+                // During explosion phase: show r2_explosion on current robot, r3_cantando on previous ones
+                if (currentExplodingIndex === 0) {
+                    robot1 = r2_explosion;
+                } else if (currentExplodingIndex === 1) {
+                    robot1 = r3_cantando;
+                    robot2 = r2_explosion;
+                } else if (currentExplodingIndex === 2) {
+                    robot1 = r3_cantando;
+                    robot2 = r3_cantando;
+                    robot3 = r2_explosion;
+                }
+            } else {
+                // Playing phase: show r3_cantando for all robots that have already exploded
+                if (incorrectHits >= 1) robot1 = r3_cantando;
+                if (incorrectHits >= 2) robot2 = r3_cantando;
+                if (incorrectHits >= 3) robot3 = r3_cantando;
+            }
+        }
+
+        return [robot1, robot2, robot3];
+    }
+
+    return [r1_sentado, r1_sentado, r1_sentado];
 };
 
-export default function RobotDisplay({ section, phase }: RobotDisplayProps) {
-    const [robots, setRobots] = useState(getRobotsState(section, phase));
+export default function RobotDisplay({ section, phase, incorrectHits = 0 }: RobotDisplayProps) {
+    const [robots, setRobots] = useState(getRobotsState(section, phase, incorrectHits));
     const [key, setKey] = useState(0);
 
     useEffect(() => {
-        const newRobots = getRobotsState(section, phase);
-        console.log('RobotDisplay: changing robots ->', { section, phase, newRobots });
+        const newRobots = getRobotsState(section, phase, incorrectHits);
+        console.log('RobotDisplay: changing robots ->', { section, phase, incorrectHits, newRobots });
         setRobots(newRobots);
         setKey(prev => prev + 1); // Force re-render of GIFs
-    }, [section, phase]);
+    }, [section, phase, incorrectHits]);
 
     return (
         <div className="relative w-full h-full flex items-center justify-center gap-8">
-            <AnimatePresence mode="wait">
-                {robots.map((robotGif, index) => (
+            {/* Robots */}
+            {robots.map((robotGif, index) => {
+                const explodingRobotIndex = (incorrectHits - 1) % 3;
+                const isThisRobotExploding = phase === 'challenge-failed' && explodingRobotIndex === index;
+                
+                return (
                     <motion.div
                         key={`${key}-${index}`}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{
                             opacity: 1,
-                            scale: (phase === 'exploding' || phase === 'challenge-failed') ? [1, 1.1, 1] : 1
+                            scale: isThisRobotExploding ? [1, 1.1, 1] : 1
                         }}
-                        exit={{ opacity: 0, scale: 0.9 }}
                         transition={{
-                            duration: (phase === 'exploding' || phase === 'challenge-failed') ? 0.5 : 0.3,
+                            duration: isThisRobotExploding ? 0.5 : 0.3,
                             scale: { duration: 0.5, times: [0, 0.5, 1] },
-                            delay: index * 0.1 // Stagger animation
+                            delay: section === 5 ? index * 0.3 + 1.5 : index * 0.1
                         }}
-                        className="relative"
+                        className="relative z-0"
                     >
                         <img
                             src={robotGif}
@@ -98,18 +161,18 @@ export default function RobotDisplay({ section, phase }: RobotDisplayProps) {
                             className="max-w-full max-h-[300px] object-contain pixelated"
                         />
 
-                        {/* Explosion flash effect */}
-                        {(phase === 'exploding' || phase === 'challenge-failed') && (
+                        {/* Explosion flash effect - only on the exploding robot */}
+                        {isThisRobotExploding && (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: [0, 0.6, 0] }}
-                                transition={{ duration: 0.5, times: [0, 0.3, 1], delay: index * 0.1 }}
+                                transition={{ duration: 0.5, times: [0, 0.3, 1] }}
                                 className="absolute inset-0 bg-red-500 mix-blend-screen"
                             />
                         )}
                     </motion.div>
-                ))}
-            </AnimatePresence>
+                );
+            })}
         </div>
     );
 }
